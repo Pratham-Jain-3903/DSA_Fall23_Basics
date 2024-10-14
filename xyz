@@ -1,0 +1,159 @@
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+
+-- Uncomment the following library declaration if using
+-- arithmetic functions with Signed or Unsigned values
+use IEEE.NUMERIC_STD.ALL;
+
+-- Uncomment the following library declaration if instantiating
+-- any Xilinx primitives in this code.
+--library UNISIM;
+--use UNISIM.VComponents.all;
+
+entity CPU_Design is
+    Port ( clk : in  STD_LOGIC;
+           rst : in  STD_LOGIC;
+           din : in  STD_LOGIC_VECTOR (5 downto 0);
+           rslt : out  STD_LOGIC_VECTOR (5 downto 0));
+end CPU_Design;
+
+architecture Behavioral of CPU_Design is
+
+component Mem_Unit is
+    Port ( clk : in  STD_LOGIC;
+           din : in  STD_LOGIC_VECTOR (5 downto 0);
+           addr : in  STD_LOGIC_VECTOR (2 downto 0);
+           rd : in  STD_LOGIC;
+           wr : in  STD_LOGIC;
+           dout : out  STD_LOGIC_VECTOR (5 downto 0));
+end component;
+
+type STATE is (FETCH , DECODE1 , DECODE2 , MEMORY_READ1 , MEMORY_READ2  ,  EXECUTE);
+
+SIGNAL PC_reg , PC_nxt : unsigned(2 downto 0);
+SIGNAL MAR_reg , MAR_nxt : std_logic_vector(2 downto 0);
+SIGNAL MDR_reg , MDR_nxt : std_logic_vector(5 downto 0);
+SIGNAL AC_reg , AC_nxt : unsigned(5 downto 0);
+SIGNAL IR_reg , IR_nxt : std_logic_vector(5 downto 0);
+SIGNAL R1_reg , R1_nxt : unsigned(5 downto 0);
+SIGNAL R2_reg , R2_nxt : unsigned(5 downto 0);
+
+SIGNAL rd , wr : std_logic ;
+SIGNAL OPCODE : STD_LOGIC_VECTOR(1 DOWNTO 0);
+SIGNAL ADDRESS : STD_LOGIC_VECTOR(2 DOWNTO 0);
+
+SIGNAL CU_FSM_reg , CU_FSM_nxt : STATE ;
+
+begin
+
+process(clk , rst)
+begin
+	if clk'EVENT and clk = '1' then
+		if rst = '1' then
+			PC_reg <= (others => '0');
+			MAR_reg <= (others => '0');
+			MDR_reg <= (others => '0');
+			AC_reg <= (others => '0');
+			IR_reg <= (others => '0');
+			R1_reg <= (others => '0');
+			R2_reg <= (others => '0');
+			
+		else
+			PC_reg <= PC_nxt;
+			MAR_reg <= MAR_nxt ;
+			MDR_reg <= MDR_nxt ;
+			AC_reg <=  AC_nxt;
+			IR_reg <= IR_nxt;
+			R1_reg <= R1_nxt;
+			R2_reg <= R2_nxt ;
+			
+		end if;
+	end if;
+end process ;
+
+process(clk , rst)
+begin
+	if clk'EVENT and clk = '1' then
+		if rst = '1' then
+			CU_FSM_reg <= FETCH ;
+		else
+			CU_FSM_reg <= CU_FSM_nxt ; 
+		end if;
+	end if;
+end process ;
+
+process(CU_FSM_reg, rd , wr , PC_reg , MAR_reg , MDR_reg , IR_reg , AC_reg , R1_reg , R2_reg  , OPCODE , ADDRESS ) 
+begin
+		if (std_logic_vector(PC_reg) = "100") then 
+	   PC_nxt <= (others => '0');
+		else
+		PC_nxt <= PC_reg;
+		end if;
+
+			MAR_nxt <= MAR_reg ;
+			--MDR_nxt <= MDR_reg;
+			AC_nxt <=  AC_reg;
+			IR_nxt <= IR_reg;
+			R1_nxt <= R1_reg;
+			R2_nxt <= R2_reg ;
+			
+			rd <= '0' ;
+			wr <= '0' ; 
+			
+	CASE CU_FSM_reg is
+		
+		when FETCH =>
+		MAR_nxt <= std_logic_vector(PC_reg );	
+		PC_nxt <= PC_reg +1 ;
+		CU_FSM_nxt <= DECODE1 ;
+		rd <= '1' ;
+		
+		
+		when DECODE1 =>
+		IR_nxt <= MDR_reg ;
+		CU_FSM_nxt <= DECODE2 ;
+		
+		when DECODE2 =>
+		OPCODE <= IR_reg(4 downto 3);
+		ADDRESS <= IR_reg(2 downto 0);
+		CU_FSM_nxt <= MEMORY_READ1 ;
+		
+		WHEN MEMORY_READ1 =>
+		MAR_nxt <= ADDRESS ;
+		rd <= '1' ;
+		CU_FSM_nxt <= MEMORY_READ2 ;
+		
+		WHEN MEMORY_READ2 =>
+		AC_nxt <= unsigned(MDR_reg) ;
+		CU_FSM_nxt <= EXECUTE ;
+		
+		WHEN EXECUTE =>
+		CASE OPCODE IS 
+		
+			WHEN "00" =>
+				if AC_reg = "000100" then
+				R1_nxt <= AC_reg;
+				elsif AC_reg = "000101" then
+				R2_nxt <= AC_reg;
+				end if;
+				
+			WHEN "01" =>
+				R2_nxt <= R2_reg + R1_reg ;
+				AC_nxt <= R2_reg + R1_reg ;
+			
+			WHEN "10" =>
+				AC_nxt <= R2_reg ;
+			
+			WHEN OTHERS =>
+			 NULL ;
+		
+		END CASE ;
+	
+CU_FSM_nxt <= FETCH ;
+end case ;
+end process ;
+
+Memory_Unit : Mem_Unit port map (clk , din , MAR_reg , rd , wr ,MDR_nxt);
+rslt <= std_Logic_vector(AC_reg) ;
+
+end Behavioral;

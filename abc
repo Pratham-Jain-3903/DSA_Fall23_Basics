@@ -1,0 +1,39 @@
+
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+
+-- Uncomment the following library declaration if using
+-- arithmetic functions with Signed or Unsigned values
+use IEEE.NUMERIC_STD.ALL;
+
+-- Uncomment the following library declaration if instantiating
+-- any Xilinx primitives in this code.
+--library UNISIM;
+--use UNISIM.VComponents.all;
+
+entity Mem_Unit is
+    Port ( clk : in  STD_LOGIC;
+           din : in  STD_LOGIC_VECTOR (5 downto 0);
+           addr : in  STD_LOGIC_VECTOR (2 downto 0);
+           rd : in  STD_LOGIC;
+           wr : in  STD_LOGIC;
+           dout : out  STD_LOGIC_VECTOR (5 downto 0));
+end Mem_Unit;
+
+architecture Behavioral of Mem_Unit is
+
+type Mem_Block is array (0 to 5) of std_logic_vector(5 downto 0);
+signal RAM : Mem_Block := ("000100" , "000101" , "001000" , "010000" , "000100" , "000101");
+
+begin
+process(clk)
+begin
+	if clk'EVENT and clk = '1' then
+		if wr = '1' then 
+			RAM(to_integer(unsigned(addr))) <= din ;
+		elsif rd = '1' then 
+			dout <= RAM(to_integer(unsigned(addr))) ;
+		end if ;
+	end if ;
+end process;
+end Behavioral;
